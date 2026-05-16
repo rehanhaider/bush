@@ -1,0 +1,33 @@
+[package]
+name = "bush"
+version = "0.2.0"
+edition = "2021"
+description = "A tree command substitute that respects .gitignore, .dockerignore, .npmignore and other ignore-file formats"
+license = "MIT"
+readme = "README.md"
+authors = ["Rehan Haider <email@rehanhaider.com>"]
+repository = "https://github.com/YOUR_USER/bush"
+homepage = "https://github.com/YOUR_USER/bush"
+documentation = "https://docs.rs/bush"
+keywords = ["tree", "gitignore", "cli", "filesystem", "ignore"]
+categories = ["command-line-utilities", "filesystem"]
+exclude = ["/.github", "/target", "/.claude", "calm-waddling-mochi.md"]
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+ctrlc = "3"
+globset = "0.4"
+ignore = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"
+tempfile = "3"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
