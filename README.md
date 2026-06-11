@@ -1,27 +1,23 @@
 # bush
 
-A `tree` command substitute that respects `.gitignore`, `.dockerignore`, `.npmignore`, `.eslintignore`, `.prettierignore`, `.ignore` — and any other ignore-file format you wire in — through one unified pipeline.
+A `tree` command substitute that respects repository-oriented ignore files by default (`.gitignore` and `.ignore`) and can opt into `.dockerignore`, `.npmignore`, `.eslintignore`, `.prettierignore`, or any other ignore-file format you wire in.
 
 Built on the same `ignore` crate that powers `ripgrep` and `fd`, so traversal is fast and the ignore semantics are correct.
 
 ```
-$ bush
-.
-├── Cargo.toml
-├── src
-│   ├── color.rs
-│   ├── config.rs
-│   ├── exit.rs
-│   ├── filter.rs
-│   ├── format.rs
-│   ├── format_meta.rs
-│   ├── main.rs
-│   ├── tree.rs
-│   └── walker.rs
-└── tests
-    └── cli.rs
+$ bush src
+src
+├── color.rs
+├── config.rs
+├── exit.rs
+├── filter.rs
+├── format.rs
+├── format_meta.rs
+├── main.rs
+├── tree.rs
+└── walker.rs
 
-2 directories, 11 files
+0 directories, 9 files
 ```
 
 ## Install
@@ -42,8 +38,8 @@ Verify: `bush --version` → `bush 0.2.0`
 bush [OPTIONS] [PATH]
 
   -I, --ignore-file <NAME>     Add an ignore filename to honor (repeatable)
-      --no-ignore              Disable all ignore-file processing
-  -H, --hidden                 Include dotfiles and dot-directories
+      --no-ignore              Disable all ignore processing
+  -H, --hidden                 Force dotfiles and dot-directories to be included
   -L, --max-depth <N>          Limit traversal depth
   -o, --output <FILE>          Write to FILE instead of stdout
       --stdout                 Force stdout (overrides any output= in config)
@@ -74,7 +70,8 @@ bush [OPTIONS] [PATH]
 ```bash
 bush                          # current directory, defaults
 bush src/ -L 2 -d             # 2 levels, directories only
-bush -H --no-ignore           # show absolutely everything
+bush --no-ignore              # show ignored paths too
+bush -I .dockerignore         # also honor Docker build-context ignores
 bush -s -D -p                 # size + mtime + permissions
 bush --sort size -r           # largest files first
 bush --include "*.rs"         # only Rust files (parent dirs auto-pruned)
@@ -92,8 +89,8 @@ bush reads JSON config from several locations, merging them in a defined precede
 
 ```json
 {
-  "ignore_files": [".gitignore", ".ignore", ".dockerignore"],
-  "include_hidden": false,
+  "ignore_files": [".gitignore", ".ignore"],
+  "include_hidden": true,
   "max_depth": 3,
   "output": "STRUCTURE.txt",
   "follow_symlinks": false,
@@ -136,10 +133,15 @@ If no config is found, `bush` honors:
 
 - `.gitignore`
 - `.ignore` (the ripgrep/fd convention)
-- `.dockerignore`
-- `.npmignore`
-- `.eslintignore`
-- `.prettierignore`
+
+It also prunes `.git/` by default so including dotfiles does not expand the repository database. Use `--no-ignore` to disable ignore processing entirely.
+
+Other ignore-file formats are opt-in:
+
+```bash
+bush -I .dockerignore
+bush -I .npmignore -I .eslintignore
+```
 
 ### Color palette (LS_COLORS-style)
 

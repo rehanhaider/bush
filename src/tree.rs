@@ -160,7 +160,8 @@ fn insert(node: &mut Node, parts: &[String], entry: &Entry) {
 pub fn apply_sort(node: &mut Node, key: SortKey, reverse: bool) {
     if !matches!(key, SortKey::None) {
         node.children.sort_by(|a, b| {
-            let cmp = match key {
+            let type_cmp = b.meta.is_dir.cmp(&a.meta.is_dir);
+            let key_cmp = match key {
                 SortKey::Name => a.name.cmp(&b.name),
                 SortKey::Size => a
                     .meta
@@ -174,11 +175,8 @@ pub fn apply_sort(node: &mut Node, key: SortKey, reverse: bool) {
                     .then_with(|| a.name.cmp(&b.name)),
                 SortKey::None => std::cmp::Ordering::Equal,
             };
-            if reverse {
-                cmp.reverse()
-            } else {
-                cmp
-            }
+            let key_cmp = if reverse { key_cmp.reverse() } else { key_cmp };
+            type_cmp.then(key_cmp)
         });
     }
     for child in &mut node.children {
@@ -451,19 +449,24 @@ mod tests {
     }
 
     #[test]
-    fn mixed_dirs_and_files_interleave_alphabetically() {
+    fn mixed_dirs_and_files_render_dirs_first_then_files() {
         let s = render_to_string(
             Path::new("/r"),
             &[
                 entry("/r/banana", false),
                 entry("/r/apple_dir", true),
+                entry("/r/avocado", false),
                 entry("/r/cherry_dir", true),
             ],
         );
         let a = s.find("apple_dir").unwrap();
-        let b = s.find("banana").unwrap();
         let c = s.find("cherry_dir").unwrap();
-        assert!(a < b && b < c, "expected interleaved alphabetical");
+        let av = s.find("avocado").unwrap();
+        let b = s.find("banana").unwrap();
+        assert!(
+            a < c && c < av && av < b,
+            "expected directories first, then files, each alphabetized: {s}"
+        );
     }
 
     #[test]
@@ -573,6 +576,22 @@ mod tests {
     }
 
     #[test]
+    fn apply_sort_by_name_groups_dirs_before_files() {
+        let mut tree = build(
+            Path::new("/r"),
+            &[
+                entry("/r/banana", false),
+                entry("/r/cherry_dir", true),
+                entry("/r/apple_dir", true),
+                entry("/r/avocado", false),
+            ],
+        );
+        apply_sort(&mut tree, SortKey::Name, false);
+        let names: Vec<&str> = tree.children.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, vec!["apple_dir", "cherry_dir", "avocado", "banana"]);
+    }
+
+    #[test]
     fn apply_sort_by_name_reversed() {
         let mut tree = build(
             Path::new("/r"),
@@ -585,6 +604,22 @@ mod tests {
         apply_sort(&mut tree, SortKey::Name, true);
         let names: Vec<&str> = tree.children.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(names, vec!["zeta", "mu", "alpha"]);
+    }
+
+    #[test]
+    fn apply_sort_reverse_keeps_dirs_before_files() {
+        let mut tree = build(
+            Path::new("/r"),
+            &[
+                entry("/r/apple_dir", true),
+                entry("/r/cherry_dir", true),
+                entry("/r/avocado", false),
+                entry("/r/banana", false),
+            ],
+        );
+        apply_sort(&mut tree, SortKey::Name, true);
+        let names: Vec<&str> = tree.children.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, vec!["cherry_dir", "apple_dir", "banana", "avocado"]);
     }
 
     #[test]

@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::filter::Filter;
 use anyhow::{bail, Result};
 use ignore::WalkBuilder;
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -32,6 +33,7 @@ pub fn walk(root: &Path, config: &Config, filter: &Filter) -> Result<Vec<Entry>>
     }
 
     if config.use_ignore {
+        builder.filter_entry(|entry| entry.depth() == 0 || entry.file_name() != OsStr::new(".git"));
         for name in &config.ignore_files {
             builder.add_custom_ignore_filename(name);
         }
@@ -169,8 +171,8 @@ mod tests {
         assert!(n.contains(&"keep.txt".to_string()));
         assert!(!n.contains(&"ignored.txt".to_string()));
         assert!(
-            !n.contains(&".gitignore".to_string()),
-            "dotfile hidden by default"
+            n.contains(&".gitignore".to_string()),
+            "dotfiles are shown by default when not ignored"
         );
     }
 
@@ -184,7 +186,13 @@ mod tests {
         std::fs::write(tmp.path().join("git-bad"), "x").unwrap();
         std::fs::write(tmp.path().join("docker-bad"), "x").unwrap();
         std::fs::write(tmp.path().join("npm-bad"), "x").unwrap();
-        let entries = walk(tmp.path(), &Config::default(), &Filter::default()).unwrap();
+        let mut cfg = Config::default();
+        cfg.ignore_files = vec![
+            ".gitignore".into(),
+            ".dockerignore".into(),
+            ".npmignore".into(),
+        ];
+        let entries = walk(tmp.path(), &cfg, &Filter::default()).unwrap();
         let n = names(&entries, tmp.path());
         assert!(n.contains(&"ok.txt".to_string()));
         assert!(!n.contains(&"git-bad".to_string()));
@@ -221,7 +229,9 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         std::fs::write(tmp.path().join(".hidden"), "x").unwrap();
         std::fs::write(tmp.path().join("visible"), "x").unwrap();
-        let entries = walk(tmp.path(), &Config::default(), &Filter::default()).unwrap();
+        let mut cfg = Config::default();
+        cfg.include_hidden = false;
+        let entries = walk(tmp.path(), &cfg, &Filter::default()).unwrap();
         let n = names(&entries, tmp.path());
         assert!(n.contains(&"visible".to_string()));
         assert!(!n.contains(&".hidden".to_string()));
@@ -239,6 +249,36 @@ mod tests {
         let n = names(&entries, tmp.path());
         assert!(n.contains(&"visible".to_string()));
         assert!(n.contains(&".hidden".to_string()));
+    }
+
+    #[test]
+    fn default_skips_git_dir_but_shows_other_dotfiles() {
+        let tmp = TempDir::new().unwrap();
+        std::fs::create_dir(tmp.path().join(".git")).unwrap();
+        std::fs::write(tmp.path().join(".git/config"), "x").unwrap();
+        std::fs::write(tmp.path().join(".npmrc"), "x").unwrap();
+        std::fs::write(tmp.path().join("visible"), "x").unwrap();
+
+        let entries = walk(tmp.path(), &Config::default(), &Filter::default()).unwrap();
+        let n = names(&entries, tmp.path());
+        assert!(n.contains(&".npmrc".to_string()));
+        assert!(n.contains(&"visible".to_string()));
+        assert!(!n.contains(&".git".to_string()));
+        assert!(!n.contains(&".git/config".to_string()));
+    }
+
+    #[test]
+    fn use_ignore_false_disables_builtin_git_dir_skip() {
+        let tmp = TempDir::new().unwrap();
+        std::fs::create_dir(tmp.path().join(".git")).unwrap();
+        std::fs::write(tmp.path().join(".git/config"), "x").unwrap();
+        let mut cfg = Config::default();
+        cfg.use_ignore = false;
+
+        let entries = walk(tmp.path(), &cfg, &Filter::default()).unwrap();
+        let n = names(&entries, tmp.path());
+        assert!(n.contains(&".git".to_string()));
+        assert!(n.contains(&".git/config".to_string()));
     }
 
     #[test]
@@ -594,7 +634,9 @@ mod tests {
         std::fs::write(tmp.path().join("a"), "x").unwrap();
         std::fs::write(tmp.path().join("b"), "x").unwrap();
         std::fs::write(tmp.path().join("c"), "x").unwrap();
-        let entries = walk(tmp.path(), &Config::default(), &Filter::default()).unwrap();
+        let mut cfg = Config::default();
+        cfg.ignore_files.push(".dockerignore".into());
+        let entries = walk(tmp.path(), &cfg, &Filter::default()).unwrap();
         let n = names(&entries, tmp.path());
         assert!(!n.contains(&"a".to_string()));
         assert!(!n.contains(&"b".to_string()));

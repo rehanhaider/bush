@@ -49,7 +49,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             ignore_files: default_ignore_files(),
-            include_hidden: false,
+            include_hidden: true,
             max_depth: None,
             output: None,
             follow_symlinks: false,
@@ -71,14 +71,7 @@ impl Default for Config {
 }
 
 pub fn default_ignore_files() -> Vec<String> {
-    vec![
-        ".gitignore".into(),
-        ".ignore".into(),
-        ".dockerignore".into(),
-        ".npmignore".into(),
-        ".eslintignore".into(),
-        ".prettierignore".into(),
-    ]
+    vec![".gitignore".into(), ".ignore".into()]
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -254,16 +247,12 @@ mod tests {
     }
 
     #[test]
-    fn default_config_has_six_ignore_files() {
+    fn default_config_uses_repo_oriented_ignore_files() {
         let cfg = Config::default();
-        assert_eq!(cfg.ignore_files.len(), 6);
+        assert_eq!(cfg.ignore_files.len(), 2);
         assert!(cfg.ignore_files.contains(&".gitignore".to_string()));
-        assert!(cfg.ignore_files.contains(&".dockerignore".to_string()));
-        assert!(cfg.ignore_files.contains(&".npmignore".to_string()));
-        assert!(cfg.ignore_files.contains(&".eslintignore".to_string()));
-        assert!(cfg.ignore_files.contains(&".prettierignore".to_string()));
         assert!(cfg.ignore_files.contains(&".ignore".to_string()));
-        assert!(!cfg.include_hidden);
+        assert!(cfg.include_hidden);
         assert!(cfg.use_ignore);
         assert!(cfg.max_depth.is_none());
         assert!(cfg.output.is_none());
@@ -292,7 +281,7 @@ mod tests {
         pc.apply(&mut cfg);
         assert_eq!(cfg.max_depth, Some(3));
         assert_eq!(cfg.ignore_files, original_files);
-        assert!(!cfg.include_hidden);
+        assert!(cfg.include_hidden);
     }
 
     #[test]
@@ -488,9 +477,9 @@ mod tests {
     #[test]
     fn load_layered_skip_config_files() {
         let tmp = TempDir::new().unwrap();
-        std::fs::write(tmp.path().join(".bush"), r#"{"include_hidden": true}"#).unwrap();
+        std::fs::write(tmp.path().join(".bush"), r#"{"include_hidden": false}"#).unwrap();
         let cfg = load_layered(None, true, tmp.path(), None, None).unwrap();
-        assert!(!cfg.include_hidden);
+        assert!(cfg.include_hidden);
     }
 
     #[test]

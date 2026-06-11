@@ -26,7 +26,7 @@ fn default_run_honors_builtin_ignore_set() {
 }
 
 #[test]
-fn default_run_honors_dockerignore() {
+fn default_run_does_not_honor_dockerignore() {
     let tmp = TempDir::new().unwrap();
     fs::create_dir(tmp.path().join("secrets")).unwrap();
     fs::write(tmp.path().join("secrets/key.pem"), "x").unwrap();
@@ -38,11 +38,28 @@ fn default_run_honors_dockerignore() {
         .assert()
         .success()
         .stdout(predicate::str::contains("app.py"))
+        .stdout(predicate::str::contains("secrets"));
+}
+
+#[test]
+fn cli_ignore_file_honors_dockerignore() {
+    let tmp = TempDir::new().unwrap();
+    fs::create_dir(tmp.path().join("secrets")).unwrap();
+    fs::write(tmp.path().join("secrets/key.pem"), "x").unwrap();
+    fs::write(tmp.path().join("app.py"), "x").unwrap();
+    fs::write(tmp.path().join(".dockerignore"), "secrets\n").unwrap();
+
+    bush()
+        .arg(tmp.path())
+        .args(["-I", ".dockerignore"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("app.py"))
         .stdout(predicate::str::contains("secrets").not());
 }
 
 #[test]
-fn default_run_honors_npmignore() {
+fn default_run_does_not_honor_npmignore() {
     let tmp = TempDir::new().unwrap();
     fs::create_dir(tmp.path().join("docs")).unwrap();
     fs::write(tmp.path().join("docs/manual.md"), "x").unwrap();
@@ -54,11 +71,28 @@ fn default_run_honors_npmignore() {
         .assert()
         .success()
         .stdout(predicate::str::contains("index.js"))
+        .stdout(predicate::str::contains("docs"));
+}
+
+#[test]
+fn cli_ignore_file_honors_npmignore() {
+    let tmp = TempDir::new().unwrap();
+    fs::create_dir(tmp.path().join("docs")).unwrap();
+    fs::write(tmp.path().join("docs/manual.md"), "x").unwrap();
+    fs::write(tmp.path().join("index.js"), "x").unwrap();
+    fs::write(tmp.path().join(".npmignore"), "docs\n").unwrap();
+
+    bush()
+        .arg(tmp.path())
+        .args(["-I", ".npmignore"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("index.js"))
         .stdout(predicate::str::contains("docs").not());
 }
 
 #[test]
-fn no_ignore_flag_shows_everything_non_hidden() {
+fn no_ignore_flag_shows_everything() {
     let tmp = TempDir::new().unwrap();
     fs::create_dir(tmp.path().join("node_modules")).unwrap();
     fs::write(tmp.path().join("node_modules/dep.js"), "x").unwrap();
@@ -73,7 +107,7 @@ fn no_ignore_flag_shows_everything_non_hidden() {
 }
 
 #[test]
-fn hidden_flag_shows_dotfiles() {
+fn default_run_shows_dotfiles() {
     let tmp = TempDir::new().unwrap();
     fs::write(tmp.path().join(".hidden"), "x").unwrap();
     fs::write(tmp.path().join("visible"), "x").unwrap();
@@ -83,7 +117,7 @@ fn hidden_flag_shows_dotfiles() {
         .assert()
         .success()
         .stdout(predicate::str::contains("visible"))
-        .stdout(predicate::str::contains(".hidden").not());
+        .stdout(predicate::str::contains(".hidden"));
 
     bush()
         .arg(tmp.path())
@@ -91,6 +125,35 @@ fn hidden_flag_shows_dotfiles() {
         .assert()
         .success()
         .stdout(predicate::str::contains(".hidden"));
+}
+
+#[test]
+fn default_run_skips_git_dir() {
+    let tmp = TempDir::new().unwrap();
+    fs::create_dir(tmp.path().join(".git")).unwrap();
+    fs::write(tmp.path().join(".git/config"), "x").unwrap();
+    fs::write(tmp.path().join(".npmrc"), "x").unwrap();
+
+    bush()
+        .arg(tmp.path())
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(".npmrc"))
+        .stdout(predicate::str::contains(".git").not());
+}
+
+#[test]
+fn no_ignore_shows_git_dir() {
+    let tmp = TempDir::new().unwrap();
+    fs::create_dir(tmp.path().join(".git")).unwrap();
+    fs::write(tmp.path().join(".git/config"), "x").unwrap();
+
+    bush()
+        .arg(tmp.path())
+        .arg("--no-ignore")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(".git"));
 }
 
 #[test]

@@ -20,7 +20,7 @@ use tree::RenderOptions;
 #[command(
     name = "bush",
     version,
-    about = "A tree command substitute that respects .*ignore files"
+    about = "A tree command substitute that respects repo ignore files"
 )]
 struct Cli {
     /// Path to display
@@ -31,11 +31,11 @@ struct Cli {
     #[arg(short = 'I', long = "ignore-file", value_name = "NAME")]
     ignore_file: Vec<String>,
 
-    /// Disable all ignore-file processing
+    /// Disable all ignore processing
     #[arg(long)]
     no_ignore: bool,
 
-    /// Include hidden (dot) files and directories
+    /// Force hidden (dot) files and directories to be included
     #[arg(short = 'H', long = "hidden", visible_alias = "include-hidden")]
     hidden: bool,
 
