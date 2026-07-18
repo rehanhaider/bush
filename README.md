@@ -30,7 +30,7 @@ ln -s "$PWD/target/release/bush" ~/.local/bin/bush     # symlink (auto-updates o
 cp     target/release/bush       ~/.local/bin/bush     # copy   (frozen at this build)
 ```
 
-Verify: `bush --version` → `bush 0.3.0`
+Verify: `bush --version` → `bush 0.3.1`
 
 ## Usage
 
