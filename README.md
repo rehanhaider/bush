@@ -136,6 +136,8 @@ If no config is found, `bush` honors:
 
 It also prunes `.git/` by default so including dotfiles does not expand the repository database. Use `--no-ignore` to disable ignore processing entirely.
 
+Ignore files in **ancestor directories** of the target are honored too, so `bush src/` applies the repository-root `.gitignore` the same way `git`, `rg`, and `fd` do.
+
 Other ignore-file formats are opt-in:
 
 ```bash

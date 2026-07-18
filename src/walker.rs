@@ -33,6 +33,9 @@ pub fn walk(root: &Path, config: &Config, filter: &Filter) -> Result<Vec<Entry>>
     }
 
     if config.use_ignore {
+        // Honor ignore files found in ancestor directories of the walk root,
+        // so `bush sub/` applies the repo-root .gitignore like git/rg/fd do.
+        builder.parents(true);
         builder.filter_entry(|entry| entry.depth() == 0 || entry.file_name() != OsStr::new(".git"));
         for name in &config.ignore_files {
             builder.add_custom_ignore_filename(name);
@@ -371,6 +374,54 @@ mod tests {
         assert!(
             n.contains(&"private".to_string()),
             "top-level 'private' not covered by sub/.gitignore"
+        );
+    }
+
+    #[test]
+    fn parent_gitignore_applies_when_walking_subdir() {
+        let tmp = TempDir::new().unwrap();
+        std::fs::write(tmp.path().join(".gitignore"), "secret.txt\n").unwrap();
+        std::fs::create_dir(tmp.path().join("sub")).unwrap();
+        std::fs::write(tmp.path().join("sub/secret.txt"), "x").unwrap();
+        std::fs::write(tmp.path().join("sub/visible.txt"), "x").unwrap();
+        let sub = tmp.path().join("sub");
+        let entries = walk(&sub, &Config::default(), &Filter::default()).unwrap();
+        let n = names(&entries, &sub);
+        assert!(n.contains(&"visible.txt".to_string()));
+        assert!(
+            !n.contains(&"secret.txt".to_string()),
+            "ancestor .gitignore must apply when walking a subdir, got: {n:?}"
+        );
+    }
+
+    #[test]
+    fn parent_gitignore_disabled_by_use_ignore_false() {
+        let tmp = TempDir::new().unwrap();
+        std::fs::write(tmp.path().join(".gitignore"), "secret.txt\n").unwrap();
+        std::fs::create_dir(tmp.path().join("sub")).unwrap();
+        std::fs::write(tmp.path().join("sub/secret.txt"), "x").unwrap();
+        let sub = tmp.path().join("sub");
+        let mut cfg = Config::default();
+        cfg.use_ignore = false;
+        let entries = walk(&sub, &cfg, &Filter::default()).unwrap();
+        let n = names(&entries, &sub);
+        assert!(n.contains(&"secret.txt".to_string()));
+    }
+
+    #[test]
+    fn parent_gitignore_anchored_patterns_stay_anchored() {
+        // "/secret.txt" in the parent anchors to the parent dir, so it must NOT
+        // hide sub/secret.txt when walking from the parent's subdir.
+        let tmp = TempDir::new().unwrap();
+        std::fs::write(tmp.path().join(".gitignore"), "/secret.txt\n").unwrap();
+        std::fs::create_dir(tmp.path().join("sub")).unwrap();
+        std::fs::write(tmp.path().join("sub/secret.txt"), "x").unwrap();
+        let sub = tmp.path().join("sub");
+        let entries = walk(&sub, &Config::default(), &Filter::default()).unwrap();
+        let n = names(&entries, &sub);
+        assert!(
+            n.contains(&"secret.txt".to_string()),
+            "pattern anchored to parent must not match inside sub/, got: {n:?}"
         );
     }
 

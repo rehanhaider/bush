@@ -1543,3 +1543,34 @@ fn local_bush_as_directory_is_silently_skipped() {
         .success()
         .stdout(predicate::str::contains("normal.txt"));
 }
+
+#[test]
+fn parent_gitignore_applies_when_target_is_subdir() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(tmp.path().join(".gitignore"), "secret.txt\n").unwrap();
+    fs::create_dir(tmp.path().join("sub")).unwrap();
+    fs::write(tmp.path().join("sub/secret.txt"), "x").unwrap();
+    fs::write(tmp.path().join("sub/visible.txt"), "x").unwrap();
+
+    bush()
+        .arg(tmp.path().join("sub"))
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("visible.txt"))
+        .stdout(predicate::str::contains("secret.txt").not());
+}
+
+#[test]
+fn no_ignore_overrides_parent_gitignore() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(tmp.path().join(".gitignore"), "secret.txt\n").unwrap();
+    fs::create_dir(tmp.path().join("sub")).unwrap();
+    fs::write(tmp.path().join("sub/secret.txt"), "x").unwrap();
+
+    bush()
+        .arg(tmp.path().join("sub"))
+        .arg("--no-ignore")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("secret.txt"));
+}
