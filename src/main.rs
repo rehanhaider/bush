@@ -114,10 +114,22 @@ struct Cli {
 
 fn main() {
     if let Err(err) = run() {
+        // A closed pipe (e.g. `bush | head`) is not an error worth reporting.
+        if is_broken_pipe(&err) {
+            std::process::exit(exit::SUCCESS);
+        }
         eprintln!("Error: {err:#}");
         std::process::exit(exit::ERROR);
     }
     std::process::exit(exit::SUCCESS);
+}
+
+fn is_broken_pipe(err: &anyhow::Error) -> bool {
+    err.chain().any(|cause| {
+        cause
+            .downcast_ref::<std::io::Error>()
+            .is_some_and(|io| io.kind() == std::io::ErrorKind::BrokenPipe)
+    })
 }
 
 fn run() -> Result<()> {
@@ -240,6 +252,7 @@ fn run() -> Result<()> {
             let stdout = std::io::stdout();
             let mut out = BufWriter::new(stdout.lock());
             dispatch(&cli.path, &entries, &opts, config.format, &mut out)?;
+            out.flush()?;
         }
     }
     Ok(())

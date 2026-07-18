@@ -1574,3 +1574,53 @@ fn no_ignore_overrides_parent_gitignore() {
         .success()
         .stdout(predicate::str::contains("secret.txt"));
 }
+
+#[cfg(unix)]
+#[test]
+fn broken_pipe_exits_quietly() {
+    use std::io::Read;
+    use std::process::{Command as StdCommand, Stdio};
+
+    // Enough output to overflow the OS pipe buffer (64K on Linux) plus bush's
+    // own BufWriter, so the write blocks until the reader closes the pipe.
+    let tmp = TempDir::new().unwrap();
+    for i in 0..3000 {
+        fs::write(
+            tmp.path().join(format!("file_with_a_long_name_{i:04}.txt")),
+            "x",
+        )
+        .unwrap();
+    }
+
+    let mut child = StdCommand::new(env!("CARGO_BIN_EXE_bush"))
+        .arg(tmp.path())
+        .env_remove("HOME")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    // Read a little, then close the read end to trigger EPIPE in bush.
+    let mut stdout = child.stdout.take().unwrap();
+    let mut buf = [0u8; 256];
+    let _ = stdout.read(&mut buf);
+    drop(stdout);
+
+    let status = child.wait().unwrap();
+    let mut stderr = String::new();
+    child
+        .stderr
+        .take()
+        .unwrap()
+        .read_to_string(&mut stderr)
+        .unwrap();
+
+    assert!(
+        status.success(),
+        "broken pipe must exit 0, got {status:?} with stderr: {stderr}"
+    );
+    assert!(
+        stderr.is_empty(),
+        "broken pipe must not print an error, got: {stderr}"
+    );
+}

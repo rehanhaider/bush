@@ -30,7 +30,7 @@ ln -s "$PWD/target/release/bush" ~/.local/bin/bush     # symlink (auto-updates o
 cp     target/release/bush       ~/.local/bin/bush     # copy   (frozen at this build)
 ```
 
-Verify: `bush --version` → `bush 0.2.0`
+Verify: `bush --version` → `bush 0.3.0`
 
 ## Usage
 
@@ -164,7 +164,7 @@ bush -I .npmignore -I .eslintignore
 
 | Code | Meaning                                                          |
 |------|------------------------------------------------------------------|
-| 0    | Success                                                          |
+| 0    | Success (including output cut short by a closed pipe, e.g. `bush \| head`) |
 | 1    | Runtime error (invalid JSON in config, nonexistent path, unknown config key, glob compile error, file write error, …) |
 | 2    | CLI parse error (handled by clap)                                |
 | 130  | Interrupted by SIGINT (Ctrl-C)                                   |
